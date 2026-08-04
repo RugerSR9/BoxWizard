@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import { apiFetch } from "./apiClient";
+import { ToastContainer, useToasts } from "./Toast";
 
 /**
  * Placeholder BoxWizard GUI shell. Talks to the local REST API exposed by
@@ -63,20 +65,27 @@ function App() {
   const [environments, setEnvironments] = useState<EnvironmentRecord[]>([]);
   const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">("checking");
   const [busyTemplateId, setBusyTemplateId] = useState<string | null>(null);
+  const { toasts, pushError, dismiss } = useToasts();
 
   async function refresh() {
     try {
       const [templatesRes, envsRes] = await Promise.all([
-        fetch(`${API_BASE}/templates`),
-        fetch(`${API_BASE}/environments`),
+        apiFetch(`${API_BASE}/templates`),
+        apiFetch(`${API_BASE}/environments`),
       ]);
       const templatesJson = await templatesRes.json();
       const envsJson = await envsRes.json();
       setTemplates(templatesJson.templates);
       setEnvironments(envsJson.environments);
       setApiStatus("online");
-    } catch {
+    } catch (err) {
       setApiStatus("offline");
+      if (err instanceof TypeError) {
+        // Network-level failure (service not running) - the "offline" status
+        // banner already communicates this, no need to also toast it.
+        return;
+      }
+      pushError(err instanceof Error ? err.message : "Failed to load environments.");
     }
   }
 
@@ -94,7 +103,7 @@ function App() {
   async function launch(template: EnvironmentTemplate) {
     setBusyTemplateId(template.id);
     try {
-      await fetch(`${API_BASE}/environments`, {
+      await apiFetch(`${API_BASE}/environments`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -104,18 +113,25 @@ function App() {
         }),
       });
       await refresh();
+    } catch (err) {
+      pushError(err instanceof Error ? err.message : "Failed to launch environment.");
     } finally {
       setBusyTemplateId(null);
     }
   }
 
   async function destroy(id: string) {
-    await fetch(`${API_BASE}/environments/${id}`, { method: "DELETE" });
-    await refresh();
+    try {
+      await apiFetch(`${API_BASE}/environments/${id}`, { method: "DELETE" });
+      await refresh();
+    } catch (err) {
+      pushError(err instanceof Error ? err.message : "Failed to destroy environment.");
+    }
   }
 
   return (
     <main className="container">
+      <ToastContainer toasts={toasts} onDismiss={dismiss} />
       <h1>BoxWizard</h1>
       <p className="subtitle">Short-lived sandboxes, one click at a time.</p>
       <p className={`api-status api-status--${apiStatus}`}>
