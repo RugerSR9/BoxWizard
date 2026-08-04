@@ -1,6 +1,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { BoxWizardError } from "./types.js";
+import { BoxWizardError, RUNTIMES_BY_KIND } from "./types.js";
 import type { RuntimeAdapter } from "./runtimeAdapter.js";
 import { BUILTIN_TEMPLATES } from "./templates.js";
 
@@ -43,9 +43,11 @@ export function buildMcpServer(adapter: RuntimeAdapter): McpServer {
       title: "Create ephemeral environment",
       description:
         "Create a short-lived, disposable container or VM sandbox from a template or raw OCI image. " +
-        "Every environment has a mandatory TTL after which it is force-destroyed.",
+        "Every environment has a mandatory TTL after which it is force-destroyed. Use list_runtimes to " +
+        "see which `runtime` values are valid for a given `kind`.",
       inputSchema: {
         kind: z.enum(["container", "vm"]),
+        runtime: z.enum(["docker", "hyperv", "mock"]).optional(),
         template: z.string().nullable().optional(),
         image: z.string().nullable().optional(),
         ttlSeconds: z.number().int().positive().default(3600),
@@ -58,6 +60,7 @@ export function buildMcpServer(adapter: RuntimeAdapter): McpServer {
       try {
         const record = await adapter.create({
           kind: args.kind,
+          runtime: args.runtime,
           template: args.template ?? null,
           image: args.image ?? null,
           ttlSeconds: args.ttlSeconds,
@@ -70,6 +73,16 @@ export function buildMcpServer(adapter: RuntimeAdapter): McpServer {
         return toErrorResult(err);
       }
     },
+  );
+
+  server.registerTool(
+    "list_runtimes",
+    {
+      title: "List available runtimes",
+      description: "List which backend engines (runtime values) are valid for each environment kind (container/vm).",
+      inputSchema: {},
+    },
+    async () => toToolResult(RUNTIMES_BY_KIND),
   );
 
   server.registerTool(

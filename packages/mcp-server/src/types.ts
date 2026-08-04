@@ -1,5 +1,19 @@
 export type EnvironmentKind = "container" | "vm";
 
+/** Which backend engine actually owns an environment. */
+export type EnvironmentRuntime = "docker" | "hyperv" | "mock";
+
+/**
+ * Which runtimes are valid for a given kind. "mock" is always available for
+ * both kinds (in-memory simulation, no daemon/hypervisor required) alongside
+ * the one real engine per kind. First entry is the default when a caller
+ * omits `runtime`.
+ */
+export const RUNTIMES_BY_KIND: Record<EnvironmentKind, EnvironmentRuntime[]> = {
+  container: ["docker", "mock"],
+  vm: ["hyperv", "mock"],
+};
+
 export type EnvironmentStatus =
   | "provisioning"
   | "running"
@@ -19,6 +33,8 @@ export interface PortMapping {
 
 export interface CreateEnvironmentRequest {
   kind: EnvironmentKind;
+  /** Backend engine to launch on; defaults to RUNTIMES_BY_KIND[kind][0] if omitted. */
+  runtime?: EnvironmentRuntime;
   template?: string | null;
   image?: string | null;
   ttlSeconds: number;
@@ -50,6 +66,8 @@ export type ConnectionInfo =
 export interface EnvironmentRecord {
   id: string;
   kind: EnvironmentKind;
+  /** Backend engine that actually owns this environment. */
+  runtime: EnvironmentRuntime;
   template: string | null;
   image: string | null;
   status: EnvironmentStatus;
@@ -81,6 +99,7 @@ export type BoxWizardErrorCode =
   | "not_found"
   | "runtime_unavailable"
   | "invalid_template"
+  | "invalid_runtime"
   | "not_supported_for_kind";
 
 export class BoxWizardError extends Error {

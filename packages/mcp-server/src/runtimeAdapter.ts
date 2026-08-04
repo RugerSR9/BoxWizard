@@ -83,6 +83,7 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
     const record: EnvironmentRecord = {
       id,
       kind: req.kind,
+      runtime: "mock",
       template: req.template ?? null,
       image,
       status: "provisioning",

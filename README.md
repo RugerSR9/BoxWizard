@@ -45,14 +45,24 @@ Every running environment now reports live CPU/memory usage and a
 
 ### Runtime backend selection
 
-`packages/mcp-server` defaults to **real** backends now:
+Which backend engine (`runtime`) launches a given environment is now a
+**per-launch** choice - a dropdown next to each template in the GUI, or the
+optional `runtime` field on `create_environment`/`POST /environments` - not
+just something implied by `kind`. Valid combinations, discoverable via
+`GET /runtimes` (`list_runtimes` MCP tool):
 
-| `BOXWIZARD_RUNTIME_MODE` | Containers | VMs |
-|---|---|---|
-| `real` (default) | Docker/Podman via `dockerode`, socket from `BOXWIZARD_DOCKER_SOCKET` (defaults to Docker Desktop's Windows named pipe) | Hyper-V via PowerShell; requires the Hyper-V feature enabled + `BOXWIZARD_VM_BASE_VHDX` (or a per-template `BOXWIZARD_VM_BASE_VHDX_<TEMPLATE>`) pointing at a base image |
-| `mock` | In-memory simulation, no Docker required | In-memory simulation, no Hyper-V required |
+| `kind` | Valid `runtime` values |
+|---|---|
+| `container` | `docker` (Docker/Podman via `dockerode`, socket from `BOXWIZARD_DOCKER_SOCKET` - defaults to Docker Desktop's Windows named pipe), `mock` (in-memory simulation, no Docker required) |
+| `vm` | `hyperv` (PowerShell + Hyper-V; requires the Hyper-V feature enabled + `BOXWIZARD_VM_BASE_VHDX`, or a per-template `BOXWIZARD_VM_BASE_VHDX_<TEMPLATE>`, pointing at a base image), `mock` (in-memory simulation, no Hyper-V required) |
 
-Use `mock` for GUI/MCP development when Docker/Hyper-V aren't set up locally:
+Omitting `runtime` defaults to the real engine (`docker`/`hyperv`). Pick
+`mock` per launch to exercise the GUI/agent flow without touching real
+Docker/Hyper-V - no env var needed.
+
+`BOXWIZARD_RUNTIME_MODE=mock` still exists as a whole-process fallback for
+when neither Docker nor Hyper-V is installed at all (every environment,
+regardless of requested `runtime`, uses the in-memory simulation):
 
 ```powershell
 $env:BOXWIZARD_RUNTIME_MODE = "mock"

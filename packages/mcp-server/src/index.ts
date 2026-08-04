@@ -15,15 +15,22 @@ const REST_PORT = Number(process.env.BOXWIZARD_REST_PORT ?? 4180);
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * BOXWIZARD_RUNTIME_MODE=mock keeps the old in-memory simulation (useful for
- * GUI/MCP development without Docker/Hyper-V installed). Default is "real",
- * which wires containers to Docker/Podman and VMs to Hyper-V - see
- * dockerRuntimeAdapter.ts / hyperVRuntimeAdapter.ts for prerequisites.
+ * BOXWIZARD_RUNTIME_MODE=mock forces the whole process onto the in-memory
+ * simulation (useful when neither Docker nor Hyper-V is installed at all).
+ * Default is "real": containers can launch on Docker/Podman, VMs on
+ * Hyper-V - see dockerRuntimeAdapter.ts / hyperVRuntimeAdapter.ts for
+ * prerequisites - and "mock" is additionally always offered as a per-launch
+ * runtime choice (see RUNTIMES_BY_KIND in types.ts) so a caller can pick it
+ * for a single environment without setting this env var.
  */
 function buildAdapter(): RuntimeAdapter {
   const mode = process.env.BOXWIZARD_RUNTIME_MODE ?? "real";
   if (mode === "mock") return new MockRuntimeAdapter();
-  return new CompositeRuntimeAdapter(new DockerRuntimeAdapter(), new HyperVRuntimeAdapter());
+  return new CompositeRuntimeAdapter({
+    docker: new DockerRuntimeAdapter(),
+    hyperv: new HyperVRuntimeAdapter(),
+    mock: new MockRuntimeAdapter(),
+  });
 }
 
 async function main() {

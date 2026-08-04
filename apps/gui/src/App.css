@@ -66,6 +66,15 @@ section {
   font-weight: 600;
 }
 
+.runtime-select {
+  border: 1px solid #3333;
+  border-radius: 6px;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.85rem;
+  background: transparent;
+  color: inherit;
+}
+
 .env-table {
   width: 100%;
   border-collapse: collapse;

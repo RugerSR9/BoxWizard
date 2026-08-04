@@ -99,6 +99,7 @@ export class DockerRuntimeAdapter implements RuntimeAdapter {
     const record: EnvironmentRecord = {
       id,
       kind: "container",
+      runtime: "docker",
       template: req.template ?? null,
       image,
       status: "running",

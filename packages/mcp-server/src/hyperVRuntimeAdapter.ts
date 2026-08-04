@@ -137,6 +137,7 @@ export class HyperVRuntimeAdapter implements RuntimeAdapter {
     const record: EnvironmentRecord = {
       id,
       kind: "vm",
+      runtime: "hyperv",
       template: req.template ?? null,
       image: null,
       status: "running",

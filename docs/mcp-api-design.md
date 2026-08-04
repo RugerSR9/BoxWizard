@@ -3,11 +3,13 @@
 Status: Design v1, backed by a working scaffold in `packages/mcp-server`. By
 default the scaffold now runs against real backends - `DockerRuntimeAdapter`
 (Docker/Podman via `dockerode`) for containers and `HyperVRuntimeAdapter`
-(PowerShell + Hyper-V cmdlets) for VMs, composed by `CompositeRuntimeAdapter` -
-matching `docs/runtime-container-prototype.md` and `docs/runtime-vm-prototype.md`.
-The original in-memory `MockRuntimeAdapter` is still available via
-`BOXWIZARD_RUNTIME_MODE=mock` for GUI/MCP development without Docker/Hyper-V
-installed.
+(PowerShell + Hyper-V cmdlets) for VMs - composed with the in-memory
+`MockRuntimeAdapter` by `CompositeRuntimeAdapter`, which routes each
+`create_environment` call to whichever engine the caller picked via `runtime`
+(see "Tool surface" below), matching `docs/runtime-container-prototype.md`
+and `docs/runtime-vm-prototype.md`. Setting `BOXWIZARD_RUNTIME_MODE=mock`
+forces the entire process onto `MockRuntimeAdapter` for GUI/MCP development
+without Docker/Hyper-V installed at all.
 
 ## Why MCP + a plain REST API, not just one
 
@@ -34,7 +36,8 @@ flowchart LR
 | MCP tool | REST equivalent | Purpose |
 |---|---|---|
 | `list_templates` | `GET /templates` | List built-in + user-defined environment templates (see `docs/mvp-features.md` catalog). |
-| `create_environment` | `POST /environments` | Create a container or VM sandbox from a template or raw image ref. Returns immediately with an id and status; TTL clock starts now. |
+| `list_runtimes` | `GET /runtimes` | List which backend engines (`runtime` values) are valid for each `kind` - `{ "container": ["docker","mock"], "vm": ["hyperv","mock"] }`. |
+| `create_environment` | `POST /environments` | Create a container or VM sandbox from a template or raw image ref, on a chosen backend engine (`runtime`). Returns immediately with an id and status; TTL clock starts now. |
 | `list_environments` | `GET /environments` | List all environments (running, queued, recently destroyed) with kind, status, TTL remaining. |
 | `get_environment` | `GET /environments/:id` | Full detail for one environment, including live `usage` (CPU%/memory) and `connection` (browser-tab access link) - see below. |
 | _(REST-only)_ | `GET /environments/:id/stats` | On-demand live CPU/memory sample, same shape as the `usage` field. |
@@ -47,6 +50,7 @@ flowchart LR
 ```json
 {
   "kind": "container | vm",
+  "runtime": "docker | hyperv | mock (optional; defaults to the first entry for kind - docker/hyperv)",
   "template": "python-3.12 | node-22 | ubuntu-desktop-gui | windows-gui | null",
   "image": "optional OCI image ref, used if template is null (container only)",
   "ttlSeconds": 3600,
@@ -55,6 +59,15 @@ flowchart LR
   "startupCommand": "optional shell command run once on start (container only)"
 }
 ```
+
+`runtime` picks the backend engine per launch, independent of the
+process-wide `BOXWIZARD_RUNTIME_MODE` env var (see `README.md`): `docker` and
+`hyperv` are the real engines for `container`/`vm` respectively, and `mock` is
+always available for either kind as an in-memory simulation - useful for
+testing the GUI/agent flow without touching real Docker or Hyper-V. Requesting
+a `runtime` that isn't valid for the given `kind` (e.g. `hyperv` with
+`kind=container`) returns `invalid_runtime`. Call `list_runtimes` /
+`GET /runtimes` to discover valid combinations instead of hardcoding them.
 
 Server-side, `ttlSeconds` is always clamped to a hard max (default 4 hours,
 configurable in app settings) regardless of what's requested - this is the
@@ -107,7 +120,7 @@ All endpoints return a consistent error shape so an agent can reliably branch on
 failure:
 
 ```json
-{ "error": { "code": "ttl_exceeded_max | not_found | runtime_unavailable | invalid_template", "message": "human-readable" } }
+{ "error": { "code": "ttl_exceeded_max | not_found | runtime_unavailable | invalid_template | invalid_runtime", "message": "human-readable" } }
 ```
 
 ## Scaffold in this repo

@@ -1,6 +1,6 @@
 import cors from "cors";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
-import { BoxWizardError, type CreateEnvironmentRequest, type ExecRequest } from "./types.js";
+import { BoxWizardError, RUNTIMES_BY_KIND, type CreateEnvironmentRequest, type ExecRequest } from "./types.js";
 import type { RuntimeAdapter } from "./runtimeAdapter.js";
 import { BUILTIN_TEMPLATES } from "./templates.js";
 
@@ -21,6 +21,10 @@ export function buildRestApi(adapter: RuntimeAdapter): Express {
 
   app.get("/templates", (_req, res) => {
     res.json({ templates: BUILTIN_TEMPLATES });
+  });
+
+  app.get("/runtimes", (_req, res) => {
+    res.json(RUNTIMES_BY_KIND);
   });
 
   app.post(
@@ -95,6 +99,7 @@ export function buildRestApi(adapter: RuntimeAdapter): Express {
       const statusByCode: Record<string, number> = {
         not_found: 404,
         invalid_template: 400,
+        invalid_runtime: 400,
         ttl_exceeded_max: 400,
         not_supported_for_kind: 400,
         runtime_unavailable: 503,
