@@ -27,15 +27,47 @@ MCP-for-Docker projects) - never both, locally. BoxWizard combines them.
 | `docs/gui-framework-decision.md` + `apps/gui/` | Tauri + React GUI shell, wired to the local REST API | Scaffolded, builds |
 | `docs/installer-design.md` | Installer/first-run/packaging plan | Designed |
 
+## Live monitoring & remote access
+
+Every running environment now reports live CPU/memory usage and a
+"communicate with this environment" link, surfaced in both the REST API
+(`usage`/`connection` fields on `EnvironmentRecord`, plus `GET
+/environments/:id/stats`) and the GUI's environment table:
+
+- **Containers**: CPU%/memory come from the real Docker/Podman stats API.
+  "Open Terminal" opens an interactive shell (xterm.js over a WebSocket exec
+  bridge) in a new browser tab.
+- **VMs**: CPU%/memory come from Hyper-V's `Get-VM`. "Open Console" opens a
+  noVNC client in a new browser tab, proxied over WebSocket to the VM's VNC
+  server. This requires the guest OS to be running a VNC server on the
+  configured port (BoxWizard can't install one inside an arbitrary guest
+  image) - see `docs/runtime-vm-prototype.md`.
+
+### Runtime backend selection
+
+`packages/mcp-server` defaults to **real** backends now:
+
+| `BOXWIZARD_RUNTIME_MODE` | Containers | VMs |
+|---|---|---|
+| `real` (default) | Docker/Podman via `dockerode`, socket from `BOXWIZARD_DOCKER_SOCKET` (defaults to Docker Desktop's Windows named pipe) | Hyper-V via PowerShell; requires the Hyper-V feature enabled + `BOXWIZARD_VM_BASE_VHDX` (or a per-template `BOXWIZARD_VM_BASE_VHDX_<TEMPLATE>`) pointing at a base image |
+| `mock` | In-memory simulation, no Docker required | In-memory simulation, no Hyper-V required |
+
+Use `mock` for GUI/MCP development when Docker/Hyper-V aren't set up locally:
+
+```powershell
+$env:BOXWIZARD_RUNTIME_MODE = "mock"
+npm run dev
+```
+
 ## Running the prototypes locally
 
-### MCP server / REST API (mock runtime backend)
+### MCP server / REST API
 
 ```powershell
 cd packages/mcp-server
 npm install
 npm run smoke-test   # exercises create/exec/extend/destroy against the mock adapter
-npm run dev           # starts the REST API on :4180 and the MCP server on stdio
+npm run dev           # starts the REST API on :4180 (real backends by default) and the MCP server on stdio
 ```
 
 ### GUI shell

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>BoxWizard - VM Console</title>
+<style>
+  html, body { height: 100%; margin: 0; background: #000; }
+  #screen { width: 100%; height: 100vh; }
+  #banner {
+    position: absolute; top: 0; left: 0; right: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    color: #f2b8b5; background: #3a1f1fcc; padding: 8px 12px; font-size: 0.85rem;
+    display: none; z-index: 10;
+  }
+</style>
+</head>
+<body>
+<div id="banner"></div>
+<div id="screen"></div>
+<script type="module">
+  import RFB from "https://cdn.jsdelivr.net/npm/@novnc/novnc@1.4.0/lib/rfb.js";
+
+  const id = new URLSearchParams(location.search).get("id");
+  const screenEl = document.getElementById("screen");
+  const banner = document.getElementById("banner");
+  function showBanner(msg) {
+    banner.textContent = msg;
+    banner.style.display = "block";
+  }
+
+  if (!id) {
+    showBanner("Missing ?id=<environmentId> in the URL.");
+  } else {
+    const proto = location.protocol === "https:" ? "wss" : "ws";
+    const url = `${proto}://${location.host}/vnc-proxy/${id}`;
+    try {
+      const rfb = new RFB(screenEl, url);
+      rfb.scaleViewport = true;
+      rfb.resizeSession = true;
+      rfb.addEventListener("connect", () => banner.style.display = "none");
+      rfb.addEventListener("disconnect", (e) => {
+        showBanner(
+          e.detail && e.detail.clean
+            ? "Disconnected from VM console."
+            : "Could not connect to the VM console. Make sure the VM is running and its guest OS is " +
+              "running a VNC server on the configured port (see docs/runtime-vm-prototype.md).",
+        );
+      });
+      rfb.addEventListener("securityfailure", () => showBanner("VNC authentication failed."));
+    } catch (err) {
+      showBanner("Failed to start VNC client: " + err.message);
+    }
+  }
+</script>
+</body>
+</html>

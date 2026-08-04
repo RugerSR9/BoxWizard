@@ -1,10 +1,12 @@
 import { randomUUID } from "node:crypto";
+import type { WebSocket } from "ws";
 import {
   BoxWizardError,
   type CreateEnvironmentRequest,
   type EnvironmentRecord,
   type ExecRequest,
   type ExecResult,
+  type ResourceUsage,
 } from "./types.js";
 import { findTemplate } from "./templates.js";
 
@@ -25,6 +27,19 @@ export interface RuntimeAdapter {
   exec(id: string, req: ExecRequest): Promise<ExecResult>;
   extend(id: string, additionalSeconds: number): Promise<EnvironmentRecord>;
   destroy(id: string): Promise<void>;
+  /** Live CPU/memory sample for a running environment. */
+  getUsage(id: string): Promise<ResourceUsage>;
+  /**
+   * Bridge an already-accepted WebSocket to an interactive shell inside a
+   * running container. Only meaningful for kind=container; adapters that
+   * don't support it should omit this method (wsBridge.ts checks for it).
+   */
+  attachTerminal?(id: string, socket: WebSocket): Promise<void>;
+  /**
+   * Resolve the VNC host/port a browser-facing proxy should connect to for a
+   * running VM's console. Only meaningful for kind=vm.
+   */
+  getVncTarget?(id: string): Promise<{ host: string; port: number }>;
 }
 
 /** Hard cap enforced server-side regardless of what a caller requests. */
@@ -79,6 +94,8 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
         memoryMb: req.resources?.memoryMb ?? 1024,
       },
       ports: req.ports ?? [],
+      usage: null,
+      connection: null,
     };
 
     this.environments.set(id, record);
@@ -95,12 +112,44 @@ export class MockRuntimeAdapter implements RuntimeAdapter {
   }
 
   async list(): Promise<EnvironmentRecord[]> {
-    return Array.from(this.environments.values());
+    return Array.from(this.environments.values()).map((r) => this.withMockUsage(r));
   }
 
   async get(id: string): Promise<EnvironmentRecord> {
     const record = this.environments.get(id);
     if (!record) throw new BoxWizardError("not_found", `No environment with id ${id}`);
+    return this.withMockUsage(record);
+  }
+
+  async getUsage(id: string): Promise<ResourceUsage> {
+    const record = await this.get(id);
+    if (!record.usage) {
+      throw new BoxWizardError("not_found", `Environment ${id} has no usage sample (status=${record.status}).`);
+    }
+    return record.usage;
+  }
+
+  /**
+   * Mock adapter never touches a real container/VM, so there is nothing to
+   * sample - synthesize a plausible-looking usage figure (deterministic per
+   * id, varying smoothly over time) so the GUI's CPU/memory columns and
+   * polling behavior can be exercised without Docker/Hyper-V installed.
+   */
+  private withMockUsage(record: EnvironmentRecord): EnvironmentRecord {
+    if (record.status !== "running") {
+      return { ...record, usage: null };
+    }
+    const seed = [...record.id].reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+    const wave = (Math.sin(Date.now() / 4000 + seed) + 1) / 2; // 0..1
+    const cpuPercent = Math.round(wave * record.resources.cpus * 60 * 10) / 10;
+    const memoryUsedMb = Math.round(record.resources.memoryMb * (0.2 + wave * 0.5));
+    const usage: ResourceUsage = {
+      cpuPercent,
+      memoryUsedMb,
+      memoryLimitMb: record.resources.memoryMb,
+      sampledAt: new Date().toISOString(),
+    };
+    record.usage = usage;
     return record;
   }
 

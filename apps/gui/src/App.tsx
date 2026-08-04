@@ -17,6 +17,17 @@ interface EnvironmentTemplate {
   defaultTtlSeconds: number;
 }
 
+interface ResourceUsage {
+  cpuPercent: number;
+  memoryUsedMb: number;
+  memoryLimitMb: number;
+  sampledAt: string;
+}
+
+type ConnectionInfo =
+  | { type: "terminal"; url: string }
+  | { type: "vnc"; url: string; host: string | null; port: number };
+
 interface EnvironmentRecord {
   id: string;
   kind: "container" | "vm";
@@ -24,6 +35,27 @@ interface EnvironmentRecord {
   image: string | null;
   status: string;
   ttlExpiresAt: string;
+  usage: ResourceUsage | null;
+  connection: ConnectionInfo | null;
+}
+
+function formatUsage(usage: ResourceUsage | null): { cpu: string; mem: string } {
+  if (!usage) return { cpu: "-", mem: "-" };
+  return {
+    cpu: `${usage.cpuPercent.toFixed(1)}%`,
+    mem: `${usage.memoryUsedMb} / ${usage.memoryLimitMb} MB`,
+  };
+}
+
+function connectionLabel(connection: ConnectionInfo): string {
+  return connection.type === "terminal" ? "Open Terminal" : "Open Console";
+}
+
+function connectionDisabledReason(connection: ConnectionInfo): string | null {
+  if (connection.type === "vnc" && !connection.host) {
+    return "VM console not reachable yet (guest network address still resolving).";
+  }
+  return null;
 }
 
 function App() {
@@ -50,9 +82,14 @@ function App() {
 
   useEffect(() => {
     refresh();
-    const interval = setInterval(refresh, 3000);
+    // Slightly faster than before so the CPU/memory columns feel "live".
+    const interval = setInterval(refresh, 2000);
     return () => clearInterval(interval);
   }, []);
+
+  function openConnection(connection: ConnectionInfo) {
+    window.open(`${API_BASE}${connection.url}`, "_blank", "noopener,noreferrer");
+  }
 
   async function launch(template: EnvironmentTemplate) {
     setBusyTemplateId(template.id);
@@ -109,24 +146,47 @@ function App() {
               <th>Kind</th>
               <th>Template / Image</th>
               <th>Status</th>
+              <th>CPU</th>
+              <th>Memory</th>
               <th>TTL Expires</th>
+              <th>Access</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {environments.map((e) => (
-              <tr key={e.id}>
-                <td>{e.kind}</td>
-                <td>{e.template ?? e.image}</td>
-                <td>{e.status}</td>
-                <td>{new Date(e.ttlExpiresAt).toLocaleTimeString()}</td>
-                <td>
-                  {e.status !== "destroyed" && e.status !== "destroying" && (
-                    <button onClick={() => destroy(e.id)}>Destroy</button>
-                  )}
-                </td>
-              </tr>
-            ))}
+            {environments.map((e) => {
+              const { cpu, mem } = formatUsage(e.usage);
+              const disabledReason = e.connection ? connectionDisabledReason(e.connection) : null;
+              return (
+                <tr key={e.id}>
+                  <td>{e.kind}</td>
+                  <td>{e.template ?? e.image}</td>
+                  <td>{e.status}</td>
+                  <td className="numeric-cell">{cpu}</td>
+                  <td className="numeric-cell">{mem}</td>
+                  <td>{new Date(e.ttlExpiresAt).toLocaleTimeString()}</td>
+                  <td>
+                    {e.connection && e.status === "running" ? (
+                      <button
+                        className="link-button"
+                        disabled={!!disabledReason}
+                        title={disabledReason ?? undefined}
+                        onClick={() => openConnection(e.connection!)}
+                      >
+                        {connectionLabel(e.connection)}
+                      </button>
+                    ) : (
+                      <span className="empty-state">-</span>
+                    )}
+                  </td>
+                  <td>
+                    {e.status !== "destroyed" && e.status !== "destroying" && (
+                      <button onClick={() => destroy(e.id)}>Destroy</button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </section>

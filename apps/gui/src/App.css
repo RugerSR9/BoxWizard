@@ -82,3 +82,28 @@ section {
 .empty-state {
   color: #888;
 }
+
+.numeric-cell {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.link-button {
+  background: none;
+  border: 1px solid #3b82f680;
+  color: #3b82f6;
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.link-button:hover:not(:disabled) {
+  background: #3b82f61a;
+}
+
+.link-button:disabled {
+  color: #888;
+  border-color: #3333;
+  cursor: not-allowed;
+}

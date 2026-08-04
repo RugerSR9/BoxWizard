@@ -1,9 +1,13 @@
 # MCP Server & Agent API Design
 
-Status: Design v1, backed by a working scaffold in `packages/mcp-server` (mock
-runtime adapter for now - wires to the real WSL2/Hyper-V backends described in
-`docs/runtime-container-prototype.md` and `docs/runtime-vm-prototype.md` as a
-follow-up).
+Status: Design v1, backed by a working scaffold in `packages/mcp-server`. By
+default the scaffold now runs against real backends - `DockerRuntimeAdapter`
+(Docker/Podman via `dockerode`) for containers and `HyperVRuntimeAdapter`
+(PowerShell + Hyper-V cmdlets) for VMs, composed by `CompositeRuntimeAdapter` -
+matching `docs/runtime-container-prototype.md` and `docs/runtime-vm-prototype.md`.
+The original in-memory `MockRuntimeAdapter` is still available via
+`BOXWIZARD_RUNTIME_MODE=mock` for GUI/MCP development without Docker/Hyper-V
+installed.
 
 ## Why MCP + a plain REST API, not just one
 
@@ -32,7 +36,8 @@ flowchart LR
 | `list_templates` | `GET /templates` | List built-in + user-defined environment templates (see `docs/mvp-features.md` catalog). |
 | `create_environment` | `POST /environments` | Create a container or VM sandbox from a template or raw image ref. Returns immediately with an id and status; TTL clock starts now. |
 | `list_environments` | `GET /environments` | List all environments (running, queued, recently destroyed) with kind, status, TTL remaining. |
-| `get_environment` | `GET /environments/:id` | Full detail for one environment (connection info, resource usage, logs pointer). |
+| `get_environment` | `GET /environments/:id` | Full detail for one environment, including live `usage` (CPU%/memory) and `connection` (browser-tab access link) - see below. |
+| _(REST-only)_ | `GET /environments/:id/stats` | On-demand live CPU/memory sample, same shape as the `usage` field. |
 | `exec_command` | `POST /environments/:id/exec` | Run a command inside a **container** environment and return stdout/stderr/exit code. Not applicable to VM environments in MVP (see below). |
 | `extend_environment` | `POST /environments/:id/extend` | Push out the TTL deadline by N seconds, capped by a server-side max. |
 | `destroy_environment` | `DELETE /environments/:id` | Immediately tear down, regardless of TTL. |
@@ -67,6 +72,34 @@ contract is visible now without committing to the implementation yet:
 
 - `vm_screenshot` (`GET /environments/:id/screenshot`)
 - `vm_input` (`POST /environments/:id/input`)
+
+## Live usage & remote access
+
+`EnvironmentRecord` (returned by `create_environment`, `list_environments`,
+`get_environment`) carries two additional fields, refreshed on every read
+while the environment is `running`:
+
+```json
+{
+  "usage": { "cpuPercent": 12.4, "memoryUsedMb": 340, "memoryLimitMb": 1024, "sampledAt": "..." },
+  "connection": { "type": "terminal", "url": "/environments/:id/terminal" }
+}
+```
+
+- `usage` is `null` unless the environment is `running`. Containers sample it
+  from the Docker/Podman stats API; VMs sample it from Hyper-V's `Get-VM`.
+- `connection.url` is a path on the same REST API host. The GUI opens it
+  directly in a new browser tab (`window.open`):
+  - **container** -> `{ type: "terminal", url: "/environments/:id/terminal" }`,
+    a WebSocket upgrade path served by `public/terminal.html` (xterm.js),
+    bridged to a real `docker exec` session by `wsBridge.ts`.
+  - **vm** -> `{ type: "vnc", url: "/vnc-proxy/:id", host, port }`, a raw
+    WebSocket<->TCP proxy served by `public/vnc.html` (noVNC), bridged to the
+    VM's VNC server by `wsBridge.ts`. `host` is `null` until the VM's guest IP
+    is resolved via Hyper-V Integration Services; the GUI disables the "Open
+    Console" button until then. The guest OS must be running a VNC server on
+    `port` (default 5900, override via `BOXWIZARD_VM_VNC_PORT`) - BoxWizard has
+    no way to install one inside an arbitrary base image.
 
 ## Error model
 

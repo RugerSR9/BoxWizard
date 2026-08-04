@@ -27,6 +27,26 @@ export interface CreateEnvironmentRequest {
   startupCommand?: string | null;
 }
 
+/** Live CPU/memory sample for a running environment. */
+export interface ResourceUsage {
+  cpuPercent: number;
+  memoryUsedMb: number;
+  memoryLimitMb: number;
+  sampledAt: string;
+}
+
+/**
+ * How a human (or a browser tab) can reach into a running environment.
+ *  - "terminal": an interactive shell reachable over a WebSocket exec bridge
+ *    (containers only) - see wsBridge.ts + public/terminal.html.
+ *  - "vnc": a graphical console reachable over a WebSocket->TCP VNC proxy
+ *    (VMs only) - see wsBridge.ts + public/vnc.html. Requires the guest to be
+ *    running a VNC server on `port`; see docs/runtime-vm-prototype.md.
+ */
+export type ConnectionInfo =
+  | { type: "terminal"; url: string }
+  | { type: "vnc"; url: string; host: string | null; port: number };
+
 export interface EnvironmentRecord {
   id: string;
   kind: EnvironmentKind;
@@ -38,6 +58,10 @@ export interface EnvironmentRecord {
   ttlExpiresAt: string;
   resources: ResourceLimits;
   ports: PortMapping[];
+  /** Live CPU/memory sample, refreshed on every list()/get() call while running. */
+  usage: ResourceUsage | null;
+  /** How to reach this environment from a browser tab, if applicable. */
+  connection: ConnectionInfo | null;
 }
 
 export interface ExecRequest {

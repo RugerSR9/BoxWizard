@@ -48,6 +48,14 @@ export function buildRestApi(adapter: RuntimeAdapter): Express {
     }),
   );
 
+  app.get(
+    "/environments/:id/stats",
+    asyncHandler(async (req, res) => {
+      const usage = await adapter.getUsage(req.params.id);
+      res.json(usage);
+    }),
+  );
+
   app.post(
     "/environments/:id/exec",
     asyncHandler(async (req, res) => {
