@@ -1,0 +1,20 @@
+# Node
+node_modules/
+dist/
+npm-debug.log*
+
+# Rust / Tauri
+target/
+apps/gui/src-tauri/target/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local prototype artifacts (downloaded rootfs, VM disks)
+scripts/prototypes/**/*.tar.gz
+scripts/prototypes/**/*.vhdx
