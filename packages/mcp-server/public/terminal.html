@@ -20,7 +20,12 @@
 <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
 <script>
-  const id = new URLSearchParams(location.search).get("id");
+  // Loaded either as /terminal.html?id=<envId> or directly as
+  // /environments/<envId>/terminal (the URL the GUI/API hand out as
+  // `connection.url`; see restApi.ts) - fall back to parsing the path when
+  // there's no query param.
+  const pathMatch = location.pathname.match(/^\/environments\/([^/]+)\/terminal$/);
+  const id = new URLSearchParams(location.search).get("id") ?? (pathMatch ? pathMatch[1] : null);
   const banner = document.getElementById("banner");
   function showBanner(msg) {
     banner.textContent = msg;

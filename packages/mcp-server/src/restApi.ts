@@ -1,8 +1,13 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import { BoxWizardError, RUNTIMES_BY_KIND, type CreateEnvironmentRequest, type ExecRequest } from "./types.js";
 import type { RuntimeAdapter } from "./runtimeAdapter.js";
 import { BUILTIN_TEMPLATES } from "./templates.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const TERMINAL_PAGE = path.join(__dirname, "../public/terminal.html");
 
 function asyncHandler(fn: (req: Request, res: Response) => Promise<void>) {
   return (req: Request, res: Response, next: NextFunction) => {
@@ -59,6 +64,15 @@ export function buildRestApi(adapter: RuntimeAdapter): Express {
       res.json(usage);
     }),
   );
+
+  // Browser-facing page for `connection.url` on container environments
+  // (dockerRuntimeAdapter.ts). This path doubles as the WebSocket upgrade
+  // target handled in wsBridge.ts - Node only routes Upgrade-header requests
+  // there, so a plain GET (page navigation) lands here instead and gets the
+  // same xterm.js UI that /terminal.html serves.
+  app.get("/environments/:id/terminal", (_req, res) => {
+    res.sendFile(TERMINAL_PAGE);
+  });
 
   app.post(
     "/environments/:id/exec",

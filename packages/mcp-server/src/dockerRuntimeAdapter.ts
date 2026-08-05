@@ -210,7 +210,11 @@ export class DockerRuntimeAdapter implements RuntimeAdapter {
       return;
     }
     const container = this.containerFor(record);
-    const shellCmd = ["/bin/sh", "-c", "exec /bin/bash 2>/dev/null || exec /bin/sh"];
+    // Not `exec /bin/bash 2>/dev/null || exec /bin/sh`: when /bin/bash is
+    // missing (e.g. alpine/busybox images), a failed `exec` terminates a
+    // non-interactive shell immediately instead of falling through the
+    // `||`, so no shell ever attaches. Test for bash first instead.
+    const shellCmd = ["/bin/sh", "-c", "if [ -x /bin/bash ]; then exec /bin/bash; else exec /bin/sh; fi"];
     const exec = await container.exec({
       Cmd: shellCmd,
       AttachStdin: true,
