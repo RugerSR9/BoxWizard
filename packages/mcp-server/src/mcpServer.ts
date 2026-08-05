@@ -2,7 +2,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { BoxWizardError, RUNTIMES_BY_KIND } from "./types.js";
 import type { RuntimeAdapter } from "./runtimeAdapter.js";
-import { BUILTIN_TEMPLATES } from "./templates.js";
+import { addCustomTemplate, listTemplates, removeCustomTemplate } from "./templates.js";
 
 function toToolResult(data: unknown) {
   return { content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }] };
@@ -34,7 +34,51 @@ export function buildMcpServer(adapter: RuntimeAdapter): McpServer {
       description: "List built-in and user-defined ephemeral environment templates (containers and VMs).",
       inputSchema: {},
     },
-    async () => toToolResult({ templates: BUILTIN_TEMPLATES }),
+    async () => toToolResult({ templates: listTemplates() }),
+  );
+
+  server.registerTool(
+    "add_template",
+    {
+      title: "Add a custom environment template",
+      description:
+        "Save an arbitrary container image reference (e.g. from Docker Hub, like `postgres:16` or `someuser/repo:tag`) " +
+        "as a reusable template, so future create_environment calls can reference it by id instead of repeating the " +
+        "image and default resources/TTL. The image is verified against Docker Hub before saving unless it points at " +
+        "another registry or skipRegistryCheck is set.",
+      inputSchema: {
+        label: z.string(),
+        image: z.string(),
+        defaultResources: z.object({ cpus: z.number().positive().optional(), memoryMb: z.number().positive().optional() }).optional(),
+        defaultTtlSeconds: z.number().int().positive().optional(),
+        startupCommand: z.string().nullable().optional(),
+        skipRegistryCheck: z.boolean().optional(),
+      },
+    },
+    async (args) => {
+      try {
+        return toToolResult(await addCustomTemplate(args));
+      } catch (err) {
+        return toErrorResult(err);
+      }
+    },
+  );
+
+  server.registerTool(
+    "remove_template",
+    {
+      title: "Remove a custom environment template",
+      description: "Delete a previously added custom template by id. Built-in templates cannot be removed.",
+      inputSchema: { id: z.string() },
+    },
+    async ({ id }) => {
+      try {
+        removeCustomTemplate(id);
+        return toToolResult({ id, removed: true });
+      } catch (err) {
+        return toErrorResult(err);
+      }
+    },
   );
 
   server.registerTool(

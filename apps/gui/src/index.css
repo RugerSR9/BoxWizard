@@ -1,0 +1,66 @@
+@import "tailwindcss";
+
+/*
+ * BoxWizard design tokens - AWS-console inspired (dark sidebar, light
+ * content canvas, single blue accent, semantic status colors) but with
+ * softer shadows/radii for a cleaner, more modern feel than the AWS console
+ * itself. Centralizing these here (rather than scattering hex values through
+ * components) is what lets future pages/features stay visually consistent.
+ */
+@theme {
+  --color-canvas: #f6f7f9;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f1f3f6;
+  --color-border: #e2e5eb;
+
+  --color-sidebar: #0f1b2d;
+  --color-sidebar-hover: #16283f;
+  --color-sidebar-active: #1a3352;
+  --color-sidebar-border: #1e2f45;
+  --color-sidebar-text: #b6c2d4;
+  --color-sidebar-text-active: #ffffff;
+
+  --color-accent: #2563eb;
+  --color-accent-hover: #1d4ed8;
+  --color-accent-soft: #eaf1fd;
+
+  --color-ink: #10192b;
+  --color-ink-muted: #5b677a;
+  --color-ink-subtle: #8b96a5;
+
+  --color-status-running: #17824e;
+  --color-status-running-bg: #e7f6ee;
+  --color-status-provisioning: #b45309;
+  --color-status-provisioning-bg: #fdf1e0;
+  --color-status-failed: #c0273c;
+  --color-status-failed-bg: #fceaec;
+  --color-status-neutral: #5b677a;
+  --color-status-neutral-bg: #eef0f3;
+
+  --color-kind-container: #2563eb;
+  --color-kind-vm: #7c3aed;
+
+  --shadow-card: 0 1px 2px rgba(16, 25, 43, 0.04), 0 1px 8px rgba(16, 25, 43, 0.04);
+  --shadow-card-hover: 0 4px 16px rgba(16, 25, 43, 0.08);
+  --shadow-popover: 0 12px 32px rgba(16, 25, 43, 0.18);
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}

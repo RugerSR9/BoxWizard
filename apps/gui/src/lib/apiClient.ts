@@ -11,6 +11,8 @@
  * res.ok everywhere.
  */
 
+export const API_BASE = "http://localhost:4180";
+
 async function extractErrorMessage(res: Response): Promise<string> {
   try {
     const body = await res.json();

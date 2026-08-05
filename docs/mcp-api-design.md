@@ -36,6 +36,9 @@ flowchart LR
 | MCP tool | REST equivalent | Purpose |
 |---|---|---|
 | `list_templates` | `GET /templates` | List built-in + user-defined environment templates (see `docs/mvp-features.md` catalog). |
+| `add_template` | `POST /templates` | Add a custom template from an arbitrary OCI image reference (e.g. Docker Hub `postgres:16`). Verified against Docker Hub before saving unless it targets another registry. Persisted to `~/.boxwizard/custom-templates.json`. |
+| `remove_template` | `DELETE /templates/:id` | Remove a previously added custom template. Built-in templates cannot be removed. |
+| - | `GET /templates/dockerhub-search?q=` | Search Docker Hub's public repository index; backs the GUI's "Add template" dialog. Not exposed as an MCP tool since it's just a UI convenience. |
 | `list_runtimes` | `GET /runtimes` | List which backend engines (`runtime` values) are valid for each `kind` - `{ "container": ["docker","mock"], "vm": ["hyperv","mock"] }`. |
 | `create_environment` | `POST /environments` | Create a container or VM sandbox from a template or raw image ref, on a chosen backend engine (`runtime`). Returns immediately with an id and status; TTL clock starts now. |
 | `list_environments` | `GET /environments` | List all environments (running, queued, recently destroyed) with kind, status, TTL remaining. |

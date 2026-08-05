@@ -2,9 +2,10 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import cors from "cors";
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
-import { BoxWizardError, RUNTIMES_BY_KIND, type CreateEnvironmentRequest, type ExecRequest } from "./types.js";
+import { BoxWizardError, RUNTIMES_BY_KIND, type CreateEnvironmentRequest, type CreateTemplateRequest, type ExecRequest } from "./types.js";
 import type { RuntimeAdapter } from "./runtimeAdapter.js";
-import { BUILTIN_TEMPLATES } from "./templates.js";
+import { addCustomTemplate, listTemplates, removeCustomTemplate } from "./templates.js";
+import { searchDockerHub } from "./dockerHub.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TERMINAL_PAGE = path.join(__dirname, "../public/terminal.html");
@@ -25,8 +26,40 @@ export function buildRestApi(adapter: RuntimeAdapter): Express {
   app.use(express.json());
 
   app.get("/templates", (_req, res) => {
-    res.json({ templates: BUILTIN_TEMPLATES });
+    res.json({ templates: listTemplates() });
   });
+
+  // "Add template from Docker Hub (or any registry)" - see templates.ts.
+  app.post(
+    "/templates",
+    asyncHandler(async (req, res) => {
+      const body = req.body as CreateTemplateRequest;
+      const template = await addCustomTemplate(body);
+      res.status(201).json(template);
+    }),
+  );
+
+  app.delete(
+    "/templates/:id",
+    asyncHandler(async (req, res) => {
+      removeCustomTemplate(req.params.id);
+      res.status(204).send();
+    }),
+  );
+
+  // Lightweight Docker Hub repository search, used by the GUI's "Add template" dialog.
+  app.get(
+    "/templates/dockerhub-search",
+    asyncHandler(async (req, res) => {
+      const query = String(req.query.q ?? "").trim();
+      if (!query) {
+        res.json({ results: [] });
+        return;
+      }
+      const results = await searchDockerHub(query);
+      res.json({ results });
+    }),
+  );
 
   app.get("/runtimes", (_req, res) => {
     res.json(RUNTIMES_BY_KIND);

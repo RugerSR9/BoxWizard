@@ -119,4 +119,23 @@ export interface EnvironmentTemplate {
   image: string | null;
   defaultResources: ResourceLimits;
   defaultTtlSeconds: number;
+  /** "builtin" ships with the app and can't be edited/removed; "custom" was added by a user/agent. */
+  origin: "builtin" | "custom";
+  /** Optional shell command to run at container startup, for custom templates that need one. */
+  startupCommand?: string | null;
+}
+
+/**
+ * Body for POST /templates. Only `kind: "container"` is supported today since
+ * custom VM templates would need a base VHD, not just an image reference -
+ * see docs/runtime-vm-prototype.md.
+ */
+export interface CreateTemplateRequest {
+  label: string;
+  image: string;
+  defaultResources?: Partial<ResourceLimits>;
+  defaultTtlSeconds?: number;
+  startupCommand?: string | null;
+  /** Skip the live Docker Hub existence check (e.g. for private/self-hosted registries). */
+  skipRegistryCheck?: boolean;
 }

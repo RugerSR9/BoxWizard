@@ -23,12 +23,20 @@ container or a lightweight GUI-capable VM - and have it cleaned up automatically
 ## Core feature list
 
 ### 1. Environment catalog / templates
-- Curated list of starter templates shown in the GUI on first run:
-  - Headless: `python:3.12`, `node:22`, `ubuntu:24.04` (+ dev tools), generic "custom image" entry.
+- Curated list of starter templates shown in the GUI on first run (all official Docker
+  Hub `library/*` images unless noted), see `packages/mcp-server/src/templates.ts`:
+  - Headless: `python:3.12`, `node:22`, `ubuntu:24.04` (+ dev tools), `golang:1.23`,
+    `postgres:16`, `redis:7`, `mysql:8`, `mongo:7`, `nginx:alpine`.
   - GUI/VM: "Windows GUI test box" (for website/desktop app testing), "Ubuntu Desktop test box".
-- Users/agents can specify an arbitrary OCI image reference instead of a template.
+- Users/agents can specify an arbitrary OCI image reference instead of a template, or save
+  one as a reusable custom template via "Add template" in the GUI (or the `add_template` MCP
+  tool / `POST /templates`) - type or search a Docker Hub repo, pick a tag, and it's verified
+  against Docker Hub before being saved. Custom templates work the same as built-ins everywhere
+  (`create_environment`, launch cards, etc.) and can be removed with `remove_template` /
+  `DELETE /templates/:id`; built-ins cannot be removed.
 - Templates are just metadata (image ref + default resource limits + default TTL +
-  optional startup command) stored as JSON, editable without touching app code.
+  optional startup command). Built-ins ship in app code; custom ones are stored as JSON at
+  `~/.boxwizard/custom-templates.json`, editable without touching app code.
 
 ### 2. One-click / one-call ephemeral provisioning
 - GUI: pick a template (or paste an image ref) -> "Launch" -> environment is running
